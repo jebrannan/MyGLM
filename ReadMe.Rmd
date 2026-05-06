@@ -1,0 +1,174 @@
+---
+title: "myglm: A Custom Implementation of Generalized Linear Models in R"
+author: "Your Name"
+date: "2026-05-06"
+output:
+  github_document:
+    toc: true
+    toc_depth: 2
+    html_preview: false
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# myglm: A Custom Implementation of Generalized Linear Models in R
+
+`myglm` is an educational R package that implements Generalized Linear Models (GLMs) from scratch using Newton-Raphson optimization and iterative reweighting techniques. It supports multiple families and link functions, providing a transparent view into the inner workings of GLM estimation.
+
+## Features
+
+- **Supported families**:
+  - Binomial (logit, probit links)
+  - Gaussian (identity link)
+  - Poisson (log link)
+  - Negative Binomial (log link, with dispersion parameter estimation)
+- **Core functionality**:
+  - Maximum likelihood estimation via Newton-Raphson
+  - Alternating optimization for dispersion parameters (Gaussian, Negative Binomial)
+  - Standard errors, z-values, and p-values
+  - Deviance calculations (model and null)
+  - AIC computation
+  - Prediction for new data
+  - Deviance residuals
+
+## Installation
+
+Clone the repository and source the R script:
+
+```{r}
+# Clone or download the repository, then:
+source("myglm.R")
+```
+
+## Usage
+
+### Basic syntax
+
+``` r
+myglm(X, Y, family, linkfun)
+```
+
+**Arguments**: - `X`: Design matrix (including intercept column if desired) - `Y`: Response vector - `family`: One of `"binomial"`, `"gaussian"`, `"poisson"`, or `"negbinomial"` - `linkfun`: Link function (depends on family)
+
+### Examples
+
+#### Gaussian (Linear Regression)
+
+```{r gaussian-example}
+# Generate data
+set.seed(123)
+X <- cbind(1, rnorm(100))
+Y <- 2 + 1.5*X[,2] + rnorm(100)
+
+# Fit model
+fit <- myglm(X, Y, "gaussian", "identity")
+
+# View results
+fit$estimate          # Coefficients
+fit$stdError          # Standard errors
+fit$pvalz             # P-values
+fit$dispersion        # Estimated dispersion
+fit$AIC               # Akaike Information Criterion
+```
+
+#### Binomial (Logistic Regression)
+
+```{r binomial-example}
+# Generate binary data
+X <- cbind(1, rnorm(100))
+prob <- 1/(1 + exp(-(0.5 + 0.8*X[,2])))
+Y <- rbinom(100, 1, prob)
+
+# Fit logistic regression
+fit <- myglm(X, Y, "binomial", "logit")
+
+# Make predictions on new data
+X_new <- cbind(1, c(-1, 0, 1))
+predictions <- fit$predict(X_new, type = "response")
+print(predictions)
+```
+
+#### Poisson Regression
+
+```{r poisson-example}
+X <- cbind(1, rnorm(100))
+mu <- exp(1 + 0.5*X[,2])
+Y <- rpois(100, mu)
+
+fit <- myglm(X, Y, "poisson", "log")
+fit$estimate
+```
+
+#### Negative Binomial
+
+```{r negbinomial-example}
+X <- cbind(1, rnorm(100))
+mu <- exp(1 + 0.5*X[,2])
+Y <- rnbinom(100, mu = mu, size = 2)
+
+fit <- myglm(X, Y, "negbinomial", "log")
+print(fit$other_parameter_mle)  # Estimated dispersion parameter
+```
+
+## Return Value
+
+`myglm()` returns a list containing:
+
+| Component             | Description                             |
+|-----------------------|-----------------------------------------|
+| `estimate`            | Estimated coefficients                  |
+| `stdError`            | Standard errors of coefficients         |
+| `z`                   | z-values (coefficient/std error)        |
+| `pvalz`               | Two-tailed p-values                     |
+| `other_parameter_mle` | MLE of dispersion (for Gaussian/NegBin) |
+| `dispersion`          | Estimated dispersion parameter          |
+| `deviance`            | Model deviance                          |
+| `deviance_null`       | Null model deviance                     |
+| `AIC`                 | Akaike Information Criterion            |
+| `predict`             | Function to predict on new data         |
+| `deviance_residuals`  | Deviance residuals                      |
+
+## Algorithm Details
+
+1. **Newton-Raphson**: Used for β coefficient estimation
+2. **Alternating Optimization**: For families with dispersion parameters, `alteroptim()` alternates between:
+   - Optimizing dispersion (via Brent's method)
+   - Updating β coefficients via Newton-Raphson
+3. **Convergence criteria**: Both β change and dispersion change must fall below tolerance
+
+## Limitations & Notes
+
+- Currently supports only `n_i = 1` (single observations, not grouped binomial data)
+- The null deviance is computed using a model with only the intercept
+- Negative Binomial uses the parameterization with mean `µ` and dispersion `r`
+- Probit link for binomial uses standard normal CDF/PDF
+
+## Comparison with `glm()`
+
+For standard GLMs, results should closely match R's built-in `glm()` function:
+
+```{r comparison}
+# Compare with built-in glm
+glm_fit <- glm(Y ~ X[,2], family = binomial(link = "logit"))
+my_fit <- myglm(X, Y, "binomial", "logit")
+
+# Compare coefficients
+cbind(glm_fit$coefficients, my_fit$estimate)
+```
+
+## License
+
+This project is for educational purposes. Feel free to use, modify, and distribute.
+
+## Author
+
+Your Name  
+https://github.com/jebrannan | jiobrannan@gmail.com
+
+## Acknowledgments
+
+Implementation follows standard GLM theory from:
+- McCullagh, P., & Nelder, J. A. (1989). *Generalized Linear Models* (2nd ed.). Chapman and Hall.
+
